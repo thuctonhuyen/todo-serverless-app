@@ -2,6 +2,9 @@ import * as AWS  from 'aws-sdk';
 import { DocumentClient } from 'aws-sdk/clients/dynamodb';
 
 import { TodoItem } from '../models/TodoItem';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('TodoItemAccess')
 
 export class TodoItemAccess {
   constructor (
@@ -10,7 +13,7 @@ export class TodoItemAccess {
   ) {}
 
   async getAllTodoItems(userId: string): Promise<TodoItem[]> {
-    console.log('Getting all Todo Items for ', userId);
+    logger.info('Getting all Todo Items for user', userId);
 
     const result = await this.docClient.query({
       TableName: this.todoItemsTable,
@@ -25,22 +28,39 @@ export class TodoItemAccess {
   }
 
   async createTodoItem(todoItem: TodoItem): Promise<TodoItem> {
-    console.log('Create Todo Item', todoItem);
+    logger.info('Create Todo Item', todoItem);
 
     await this.docClient.put({
       TableName: this.todoItemsTable,
       Item: todoItem,
     }).promise();
 
-    console.log('Successfully creating TodoItem', todoItem);
+    logger.info('Successfully creating TodoItem', todoItem);
     return todoItem;
+  }
+
+  async deleteTodoItem(todoId: string, userId: string) {
+    try {
+      logger.info('Delete Todo Item', todoId, userId);
+
+      await this.docClient.delete({
+        TableName: this.todoItemsTable,
+        Key: {
+          userId,
+          todoId,
+        }
+      }).promise();
+
+    } catch(e) {
+      logger.error('Invalid action', { error: e.message });
+    }
   }
 }
 
 // TODO: figure it out to share the folowing function:
 function createDynamoDBClient() {
   if (process.env.IS_OFFLINE) {
-    console.log('Creating a local DynamoDB instance')
+    logger.info('Creating a local DynamoDB instance')
     return new AWS.DynamoDB.DocumentClient({
       region: 'localhost',
       endpoint: 'http://localhost:8000'

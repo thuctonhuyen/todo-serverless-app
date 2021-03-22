@@ -5,11 +5,16 @@ import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } f
 import { CreateTodoRequest } from '../../requests/CreateTodoRequest'
 import { getJwtToken } from '../../auth/utils'
 import { createTodoItem } from '../../businessLogic/todoItems'
+import { createLogger } from '../../utils/logger';
+
+const logger = createLogger('createTodo handler');
 
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   const newTodo: CreateTodoRequest = JSON.parse(event.body)
   const jwtToken: string = getJwtToken(event);
 
+  logger.info('Receive request', event);
+  
   const newItem = await createTodoItem(newTodo, jwtToken);
 
   return {

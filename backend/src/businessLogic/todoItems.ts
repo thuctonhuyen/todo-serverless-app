@@ -26,7 +26,16 @@ export async function createTodoItem(
     name: createTodoItemRequest.name,
     dueDate: createTodoItemRequest.dueDate,
     done: false,
-    // TODO: coming soon for attachment url
-    attachmentUrl: '',
   });
 };
+
+export async function deleteTodoItem(
+  todoId: string,
+  jwtToken: string,
+) {
+  const userId = parseUserId(jwtToken);
+
+  return await todoItemAccess.deleteTodoItem(
+    todoId, userId,
+  );
+}

@@ -3,10 +3,12 @@ import 'source-map-support/register'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, APIGatewayProxyHandler } from 'aws-lambda'
 import { getAllTodoItems } from '../../businessLogic/todoItems';
 import { getJwtToken } from '../../auth/utils';
+import { createLogger } from '../../utils/logger';
+
+const logger = createLogger('getTodos handler');
 
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-
-  // console.log('Processing event: ', event)
+  logger.info('Receive request', event);
 
   const jwtToken = getJwtToken(event);
   const result = await getAllTodoItems(jwtToken);
