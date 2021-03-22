@@ -3,6 +3,7 @@ import * as uuid from 'uuid';
 import { TodoItem } from '../models/TodoItem';
 import { TodoItemAccess } from '../dataLayer/todoItemsAccess';
 import { CreateTodoRequest } from '../requests/CreateTodoRequest';
+import { UpdateTodoRequest } from '../requests/UpdateTodoRequest';
 import { parseUserId } from '../auth/utils';
 
 const todoItemAccess = new TodoItemAccess();
@@ -37,5 +38,17 @@ export async function deleteTodoItem(
 
   return await todoItemAccess.deleteTodoItem(
     todoId, userId,
+  );
+}
+
+export async function updateTodoItem(
+  todoId: string,
+  updateTodoItemRequest: UpdateTodoRequest,
+  jwtToken: string,
+) {
+  const userId = parseUserId(jwtToken);
+
+  return await todoItemAccess.updateTodoItem(
+    todoId, updateTodoItemRequest, userId,
   );
 }

@@ -5,7 +5,7 @@ import { createLogger } from '../../utils/logger';
 import { getJwtToken } from '../../auth/utils';
 import { deleteTodoItem } from '../../businessLogic/todoItems';
 
-const logger = createLogger('getTodos handler');
+const logger = createLogger('deleteTodo handler');
 
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   logger.info('Receive request', event);

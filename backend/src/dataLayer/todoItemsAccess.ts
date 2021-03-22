@@ -2,6 +2,8 @@ import * as AWS  from 'aws-sdk';
 import { DocumentClient } from 'aws-sdk/clients/dynamodb';
 
 import { TodoItem } from '../models/TodoItem';
+import { TodoUpdate } from '../models/TodoUpdate';
+import { UpdateTodoRequest } from '../requests/UpdateTodoRequest';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('TodoItemAccess')
@@ -35,7 +37,7 @@ export class TodoItemAccess {
       Item: todoItem,
     }).promise();
 
-    logger.info('Successfully creating TodoItem', todoItem);
+    logger.info('Successfully created TodoItem', todoItem);
     return todoItem;
   }
 
@@ -52,7 +54,36 @@ export class TodoItemAccess {
       }).promise();
 
     } catch(e) {
-      logger.error('Invalid action', { error: e.message });
+      logger.error('Fail to delete Todo Item', { error: e.message });
+    }
+  }
+
+  async updateTodoItem(todoId: string, updateTodoItem: UpdateTodoRequest, userId: string): Promise<TodoUpdate> {
+    try {
+      logger.info('Update Todo Item', todoId, updateTodoItem, userId);
+
+      await this.docClient.update({
+        TableName: this.todoItemsTable,
+        Key: {
+          userId,
+          todoId,
+        },
+        UpdateExpression: 'SET #todo_name = :name, dueDate = :dueDate, done = :done',
+        ExpressionAttributeValues: {
+          ':name': updateTodoItem.name,
+          ':dueDate': updateTodoItem.dueDate,
+          ':done': updateTodoItem.done,
+        },
+        ExpressionAttributeNames: {
+          '#todo_name': 'name',
+        },
+        ReturnValues: 'ALL_NEW',
+      }).promise();
+
+      logger.info('Successfully updated TodoItem', updateTodoItem);
+      return updateTodoItem;
+    } catch(e) {
+      logger.error('Fail to update Todo Item', { error: e.message });
     }
   }
 }
