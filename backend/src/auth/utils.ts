@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { decode } from 'jsonwebtoken'
-import _ from 'lodash';
+import * as _ from 'lodash';
 
 import { JwtPayload } from './JwtPayload'
 
