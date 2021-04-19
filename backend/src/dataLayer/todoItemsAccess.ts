@@ -1,4 +1,5 @@
 import * as AWS  from 'aws-sdk';
+import * as AWSXRay from 'aws-xray-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb';
 import * as _ from 'lodash';
 
@@ -7,7 +8,8 @@ import { TodoUpdate } from '../models/TodoUpdate';
 import { UpdateTodoRequest } from '../requests/UpdateTodoRequest';
 import { createLogger } from '../utils/logger';
 
-const logger = createLogger('TodoItemAccess')
+const logger = createLogger('TodoItemAccess');
+const XAWS = AWSXRay.captureAWS(AWS);
 
 export class TodoItemAccess {
   constructor (
@@ -147,5 +149,5 @@ function createDynamoDBClient() {
     })
   }
 
-  return new AWS.DynamoDB.DocumentClient()
+  return new XAWS.DynamoDB.DocumentClient()
 }
