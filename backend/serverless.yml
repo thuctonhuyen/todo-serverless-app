@@ -17,8 +17,11 @@ provider:
 
   environment:
     TODOITEMS_TABLE: TodoItems-${self:provider.stage}
-    TODOUPDATES_TABLE: TodoUpdates-${self:provider.stage}
-    # USERS_TABLE: Users-${self:provider.stage}
+    IMAGES_S3_BUCKET: thuc-serverless-todo-${self:provider.stage}
+    SIGNED_URL_EXPIRATION: 300 
+    AUTH_0_SECRET_ID: Auth0Secret-${self:provider.stage}
+    AUTH_0_SECRET_FIELD: auth0Secret
+    JWKS_TIMEOUT: 30000
 
   iamRoleStatements:
     - Effect: Allow
@@ -28,16 +31,25 @@ provider:
         - '*'
     - Effect: Allow
       Action:
-        - dynamodb:Scan
         - dynamodb:PutItem
         - dynamodb:GetItem
         - dynamodb:Query
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
       Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOITEMS_TABLE}
     - Effect: Allow
       Action:
-        - dynamodb:PutItem
-        - dynamodb:Query
-      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOUPDATES_TABLE}
+        - s3:PutObject
+        - s3:GetObject
+      Resource: arn:aws:s3:::${self:provider.environment.IMAGES_S3_BUCKET}/*
+    - Effect: Allow
+      Action:
+        - secretsmanager:GetSecretValue
+      Resource: !Ref Auth0Secret
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+      Resource: !GetAtt KMSKey.Arn
 
 custom:
   serverless-offline:
@@ -51,12 +63,13 @@ custom:
     stages: # Add this section of the config
       - dev
 
+  topicName: imagesTopic-${self:provider.stage}
+
 functions:
 
-  # Auth:
-  #   handler: src/lambda/auth/auth0Authorizer.handler
+  Auth:
+    handler: src/lambda/auth/auth0Authorizer.handler
 
-  # TODO: Configure this function
   GetTodos:
     handler: src/lambda/http/getTodos.handler
     events:
@@ -64,9 +77,8 @@ functions:
           method: get
           path: todos
           cors: true
+          authorizer: Auth
 
-  # TODO: Configure this function
-  # GetTodos:
   CreateTodo:
     handler: src/lambda/http/createTodo.handler
     events:
@@ -74,42 +86,43 @@ functions:
           method: post
           path: todos
           cors: true
-          # authorizer: Auth
+          authorizer: Auth
+          reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Create a new todo
+            description: Create a new todo
+            requestModels:
+              'application/json': TodoRequest
+
+  UpdateTodo:
+    handler: src/lambda/http/updateTodo.handler
+    events:
+      - http:
+          method: patch
+          path: todos/{todoId}
+          cors: true
+          authorizer: Auth
           reqValidatorName: RequestBodyValidator
 
+  DeleteTodo:
+    handler: src/lambda/http/deleteTodo.handler
+    events:
+      - http:
+          method: delete
+          path: todos/{todoId}
+          cors: true
+          authorizer: Auth
+          reqValidatorName: RequestBodyValidator
 
-  # TODO: Configure this function
-  # UpdateTodo:
-  #   handler: src/lambda/http/updateTodo.handler
-  #   events:
-  #     - http:
-  #         method: patch
-  #         path: todos/{todoId}
-  #         cors: true
-  #         # authorizer: Auth
-  #         reqValidatorName: RequestBodyValidator
-
-  # TODO: Configure this function
-  # DeleteTodo:
-  #   handler: src/lambda/http/deleteTodo.handler
-  #   events:
-  #     - http:
-  #         method: delete
-  #         path: todos/{todoId}
-  #           cors: true
-  #         authorizer: Auth
-  #         reqValidatorName: RequestBodyValidator
-
-  # TODO: Configure this function
-  # GenerateUploadUrl:
-  #   handler: src/lambda/http/generateUploadUrl.handler
-  #   events:
-  #     - http:
-  #         method: post
-  #         path: todos/{todoId}/attachment
-  #         cors: true
-  #         authorizer: Auth
-  #         reqValidatorName: RequestBodyValidator
+  GenerateUploadUrl:
+    handler: src/lambda/http/generateUploadUrl.handler
+    events:
+      - http:
+          method: post
+          path: todos/{todoId}/attachment
+          cors: true
+          authorizer: Auth
+          reqValidatorName: RequestBodyValidator
 
 resources:
   Resources:
@@ -124,7 +137,6 @@ resources:
         RestApiId:
           Ref: ApiGatewayRestApi
 
-
     TodoItemsDynamoDBTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -134,24 +146,12 @@ resources:
           - AttributeName: todoId
             AttributeType: S
         KeySchema:
-          - AttributeName: todoId
-            KeyType: HASH
           - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: todoId
             KeyType: RANGE
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:provider.environment.TODOITEMS_TABLE}
-
-    TodoUpdatesDynamoDBTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        AttributeDefinitions:
-          - AttributeName: id
-            AttributeType: S
-        KeySchema:
-          - AttributeName: id
-            KeyType: HASH
-        BillingMode: PAY_PER_REQUEST
-        TableName: ${self:provider.environment.TODOUPDATES_TABLE}
 
     RequestBodyValidator:
       Type: AWS::ApiGateway::RequestValidator
@@ -162,4 +162,72 @@ resources:
         ValidateRequestBody: true
         ValidateRequestParameters: false
 
-    # TODO: Add any necessary AWS resources
+    AttachmentsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.IMAGES_S3_BUCKET}
+        CorsConfiguration:
+          CorsRules:
+            -
+              AllowedOrigins:
+                - '*'
+              AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
+
+    BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        PolicyDocument:
+          Id: MyPolicy
+          Version: "2012-10-17"
+          Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: 'arn:aws:s3:::${self:provider.environment.IMAGES_S3_BUCKET}/*'
+        Bucket: !Ref AttachmentsBucket
+
+    KMSKey:
+      Type: AWS::KMS::Key
+      Properties:
+        Description: KMS key to encrypt Auth0 secret
+        KeyPolicy:
+          Version: '2012-10-17'
+          Id: key-default-1
+          Statement:
+            - Sid: Allow administration of the key
+              Effect: Allow
+              Principal:
+                AWS:
+                  Fn::Join:
+                  - ':'
+                  - - 'arn:aws:iam:'
+                    - Ref: AWS::AccountId
+                    - 'root'
+              Action:
+                - 'kms:*'
+              Resource: '*'
+
+    KMSKeyAlias:
+      Type: AWS::KMS::Alias
+      Properties:
+        AliasName: alias/auth0Key-${self:provider.stage}
+        TargetKeyId: !Ref KMSKey
+
+    Auth0Secret:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+        Name: ${self:provider.environment.AUTH_0_SECRET_ID}
+        Description: Auth0 secret
+        KmsKeyId: !Ref KMSKey
+
+
+    
