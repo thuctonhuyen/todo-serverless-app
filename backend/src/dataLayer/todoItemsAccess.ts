@@ -1,5 +1,6 @@
 import * as AWS  from 'aws-sdk';
 import { DocumentClient } from 'aws-sdk/clients/dynamodb';
+import * as _ from 'lodash';
 
 import { TodoItem } from '../models/TodoItem';
 import { TodoUpdate } from '../models/TodoUpdate';
@@ -15,7 +16,7 @@ export class TodoItemAccess {
   ) {}
 
   async getAllTodoItems(userId: string): Promise<TodoItem[]> {
-    logger.info('Getting all Todo Items for user', userId);
+    logger.info('Getting all Todo Items for user', { userId } );
 
     const result = await this.docClient.query({
       TableName: this.todoItemsTable,
@@ -30,7 +31,7 @@ export class TodoItemAccess {
   }
 
   async createTodoItem(todoItem: TodoItem): Promise<TodoItem> {
-    logger.info('Create Todo Item', todoItem);
+    logger.info('Create Todo Item', { todoItem });
 
     await this.docClient.put({
       TableName: this.todoItemsTable,
@@ -43,7 +44,7 @@ export class TodoItemAccess {
 
   async deleteTodoItem(todoId: string, userId: string) {
     try {
-      logger.info('Delete Todo Item', todoId, userId);
+      logger.info('Delete Todo Item', { todoId, userId });
 
       await this.docClient.delete({
         TableName: this.todoItemsTable,
@@ -60,7 +61,9 @@ export class TodoItemAccess {
 
   async updateTodoItem(todoId: string, updateTodoItem: UpdateTodoRequest, userId: string): Promise<TodoUpdate> {
     try {
-      logger.info('Update Todo Item', todoId, updateTodoItem, userId);
+      logger.info('Update Todo Item', {
+        todoId, updateTodoItem, userId,
+      });
 
       await this.docClient.update({
         TableName: this.todoItemsTable,
@@ -86,9 +89,55 @@ export class TodoItemAccess {
       logger.error('Fail to update Todo Item', { error: e.message });
     }
   }
+
+  async getTodoItem(todoId: string, userId: string): Promise<Boolean> {
+    try {
+      logger.info('Todo Item Exist?', { todoId, userId });
+
+      const result = await this.docClient.get({
+        TableName: this.todoItemsTable,
+        Key: {
+          userId,
+          todoId,
+        }
+      }).promise();
+
+      logger.info('Successfully found todo item', result);
+      return !_.isEmpty(result.Item) ? true : false;
+    } catch (e) {
+      logger.error('Fail to find Todo Item', { error: e.message });
+      return false;
+    }
+  }
+
+  async updateTodoItemAttachmentUrl(todoId: string, userId: string, attachmentUrl: string) {
+    try {
+      logger.info('Update Todo Item Attachment URL', {
+        todoId, userId, attachmentUrl,
+      });
+
+      const result = await this.docClient.update({
+        TableName: this.todoItemsTable,
+        Key: {
+          userId,
+          todoId,
+        },
+        UpdateExpression: 'SET attachmentUrl = :attachmentUrl',
+        ExpressionAttributeValues: {
+          ':attachmentUrl': attachmentUrl,
+        },
+        ReturnValues: 'ALL_NEW',
+      }).promise();
+
+      logger.info('Successfully updated todo item attachment url', result);
+
+      return result;
+    } catch (e) {
+      logger.error('Fail to update Todo Item Attachment URL', { error: e.message });
+    }
+  }
 }
 
-// TODO: figure it out to share the folowing function:
 function createDynamoDBClient() {
   if (process.env.IS_OFFLINE) {
     logger.info('Creating a local DynamoDB instance')

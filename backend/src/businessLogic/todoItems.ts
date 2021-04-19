@@ -52,3 +52,26 @@ export async function updateTodoItem(
     todoId, updateTodoItemRequest, userId,
   );
 }
+
+export async function todoItemExist(
+  todoId: string,
+  jwtToken: string,
+) {
+  const userId = parseUserId(jwtToken);
+
+  return await todoItemAccess.getTodoItem(
+    todoId, userId,
+  );
+}
+
+export async function updateTodoItemAttachmentUrl(
+  todoId: string,
+  jwtToken: string,
+  attachmentUrl: string,
+) {
+  const userId = parseUserId(jwtToken);
+
+  return await todoItemAccess.updateTodoItemAttachmentUrl(
+    todoId, userId, attachmentUrl,
+  );
+}
