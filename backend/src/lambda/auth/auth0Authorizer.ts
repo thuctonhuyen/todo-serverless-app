@@ -1,20 +1,16 @@
 import { CustomAuthorizerEvent, CustomAuthorizerResult } from 'aws-lambda'
 import 'source-map-support/register'
+import * as _ from 'lodash';
+import * as jwksClient from 'jwks-rsa';
+import { verify, decode } from 'jsonwebtoken'
 
-// import { verify, decode } from 'jsonwebtoken'
-import { verify } from 'jsonwebtoken'
 import { createLogger } from '../../utils/logger'
-// import Axios from 'axios'
-// import { Jwt } from '../../auth/Jwt'
+import { Jwt } from '../../auth/Jwt'
 import { JwtPayload } from '../../auth/JwtPayload'
 
-const auth0Secret = process.env.AUTH_0_SECRET
 const logger = createLogger('auth')
-
-// TODO: Provide a URL that can be used to download a certificate that can be used
-// to verify JWT token signature.
-// To get this URL you need to go to an Auth0 page -> Show Advanced Settings -> Endpoints -> JSON Web Key Set
-// const jwksUrl = '...'
+const jwksUrl = process.env.JWKS_URL;
+const jwksTimeOut: number = _.toNumber(process.env.JWKS_TIMEOUT) || 30000;
 
 export const handler = async (
   event: CustomAuthorizerEvent
@@ -57,15 +53,25 @@ export const handler = async (
 }
 
 async function verifyToken(authHeader: string): Promise<JwtPayload> {
-  const token = getToken(authHeader)
-  // const jwt: Jwt = decode(token, { complete: true }) as Jwt
+  const token = getToken(authHeader);
+  const decodedToken: Jwt = decode(token, { complete: true }) as Jwt;
 
-  // TODO: Implement token verification
-  // You should implement it similarly to how it was implemented for the exercise for the lesson 5
-  // You can read more about how to do this here: https://auth0.com/blog/navigating-rs256-and-jwks/
-  // return undefined
+  // This could fail. If it does handle as 401 as the token is invalid.
+  // var decodedToken = jwt.decode(token, {complete: true});
+  if (decodedToken.header.alg !== 'RS256') {
+    // we are only supporting RS256 so fail if this happens.
+    throw new Error('Invalid Header')
+  }
 
-  return verify(token, auth0Secret) as Promise<JwtPayload>;
+  const client = jwksClient({
+    jwksUri: jwksUrl,
+    timeout: jwksTimeOut,
+  });
+
+  const key = await client.getSigningKey(_.get(decodedToken, 'header.kid'));
+  const signingKey = key.getPublicKey();
+
+  return verify(token, signingKey, { algorithms: ['RS256'] }) as Promise<JwtPayload>;
 }
 
 function getToken(authHeader: string): string {
