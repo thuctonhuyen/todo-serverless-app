@@ -23,33 +23,16 @@ provider:
     AUTH_0_SECRET_FIELD: auth0Secret
     JWKS_TIMEOUT: 30000
 
+  tracing:
+    lambda: true
+    apiGateway: true
+
   iamRoleStatements:
     - Effect: Allow
       Action:
         - codedeploy:*
       Resource:
         - '*'
-    - Effect: Allow
-      Action:
-        - dynamodb:PutItem
-        - dynamodb:GetItem
-        - dynamodb:Query
-        - dynamodb:UpdateItem
-        - dynamodb:DeleteItem
-      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOITEMS_TABLE}
-    - Effect: Allow
-      Action:
-        - s3:PutObject
-        - s3:GetObject
-      Resource: arn:aws:s3:::${self:provider.environment.IMAGES_S3_BUCKET}/*
-    - Effect: Allow
-      Action:
-        - secretsmanager:GetSecretValue
-      Resource: !Ref Auth0Secret
-    - Effect: Allow
-      Action:
-        - kms:Decrypt
-      Resource: !GetAtt KMSKey.Arn
 
 custom:
   serverless-offline:
@@ -66,9 +49,17 @@ custom:
   topicName: imagesTopic-${self:provider.stage}
 
 functions:
-
   Auth:
     handler: src/lambda/auth/auth0Authorizer.handler
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - secretsmanager:GetSecretValue
+        Resource: !Ref Auth0Secret
+      - Effect: Allow
+        Action:
+          - kms:Decrypt
+        Resource: !GetAtt KMSKey.Arn
 
   GetTodos:
     handler: src/lambda/http/getTodos.handler
@@ -78,6 +69,11 @@ functions:
           path: todos
           cors: true
           authorizer: Auth
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOITEMS_TABLE}
 
   CreateTodo:
     handler: src/lambda/http/createTodo.handler
@@ -93,6 +89,11 @@ functions:
             description: Create a new todo
             requestModels:
               'application/json': TodoRequest
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOITEMS_TABLE}
 
   UpdateTodo:
     handler: src/lambda/http/updateTodo.handler
@@ -103,6 +104,13 @@ functions:
           cors: true
           authorizer: Auth
           reqValidatorName: RequestBodyValidator
+          documentation:
+            summary: Update a todo item
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOITEMS_TABLE}
 
   DeleteTodo:
     handler: src/lambda/http/deleteTodo.handler
@@ -113,6 +121,11 @@ functions:
           cors: true
           authorizer: Auth
           reqValidatorName: RequestBodyValidator
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:DeleteItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOITEMS_TABLE}
 
   GenerateUploadUrl:
     handler: src/lambda/http/generateUploadUrl.handler
@@ -123,7 +136,18 @@ functions:
           cors: true
           authorizer: Auth
           reqValidatorName: RequestBodyValidator
-
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOITEMS_TABLE}
+      - Effect: Allow
+        Action:
+          - s3:PutObject
+          - s3:GetObject
+        Resource: arn:aws:s3:::${self:provider.environment.IMAGES_S3_BUCKET}/*
+      
 resources:
   Resources:
     GatewayResponseDefault4XX:
