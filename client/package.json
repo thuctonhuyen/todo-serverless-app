@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "axios": "^0.18.1",
+    "axios": "^0.21.1",
     "dateformat": "^3.0.3",
     "immutability-helper": "^3.0.1",
     "react": "^16.8.6",
@@ -27,7 +27,7 @@
     "typescript": "3.4.3"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "PORT=3001 react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
