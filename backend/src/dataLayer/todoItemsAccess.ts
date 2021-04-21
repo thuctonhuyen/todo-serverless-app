@@ -10,6 +10,7 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('TodoItemAccess');
 const XAWS = AWSXRay.captureAWS(AWS);
+const todoItemTableIndexName = process.env.TODOITEMS_TABLE_INDEX;
 
 export class TodoItemAccess {
   constructor (
@@ -22,6 +23,7 @@ export class TodoItemAccess {
 
     const result = await this.docClient.query({
       TableName: this.todoItemsTable,
+      IndexName: todoItemTableIndexName,
       KeyConditionExpression: 'userId = :userId',
       ExpressionAttributeValues: {
         ':userId': userId,
