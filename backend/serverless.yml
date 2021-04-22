@@ -49,6 +49,12 @@ custom:
 
   topicName: imagesTopic-${self:provider.stage}
 
+  documentation:
+    models:
+      - name: TodoRequest
+        contentType: application/json
+        schema: ${file(models/create-todo-request.json)}
+
 functions:
   Auth:
     handler: src/lambda/auth/auth0Authorizer.handler
@@ -90,6 +96,9 @@ functions:
             description: Create a new todo
             requestModels:
               'application/json': TodoRequest
+          request:
+            schema:
+              application/json: ${file(models/create-todo-request.json)}
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -107,6 +116,7 @@ functions:
           reqValidatorName: RequestBodyValidator
           documentation:
             summary: Update a todo item
+            description: Update a todo item
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -169,6 +179,8 @@ resources:
           - AttributeName: userId
             AttributeType: S
           - AttributeName: todoId
+            AttributeType: S
+          - AttributeName: createdAt
             AttributeType: S
         KeySchema:
           - AttributeName: userId
